@@ -4,6 +4,7 @@ use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
     instruction::{AccountMeta, Instruction},
+    msg,
     program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
@@ -43,6 +44,7 @@ pub fn process_instruction(
 
     match instruction_data.split_first() {
         Some((&0, &[])) => {
+            msg!("0");
             let system_program_info = next_account_info(accounts_iter)?;
             invoke_signed(
                 &system_instruction::create_account(
@@ -61,6 +63,8 @@ pub fn process_instruction(
             )?
         }
         Some((&1, &[])) => {
+            msg!("1");
+            let auth_counter_program_info = next_account_info(accounts_iter)?;
             invoke_signed(
                 &Instruction {
                     program_id: auth_ctr_prog_id,
@@ -70,7 +74,7 @@ pub fn process_instruction(
                     ],
                     data: vec![],
                 },
-                &[user_counter.clone()],
+                &[user_counter.clone(), auth_counter_program_info.clone()],
                 &[&[user.key.as_ref(), global_counter.key.as_ref(), &[bump]]],
             )?;
             let mut tracker = CounterTracker::try_from_slice(&global_counter.data.borrow())?;

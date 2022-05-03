@@ -48,52 +48,96 @@ const main = async () => {
     let counterKey = counterAccount.publicKey;
     let tx = new Transaction();
     let signers = [feePayer];
+
     if (args.length > 1) {
         console.log("Found address");
         counterKey = new PublicKey(args[1]);
+        var trackerKey = (await PublicKey.findProgramAddress(
+            [feePayer.publicKey.toBuffer(), counterKey.toBuffer()],
+            programId
+        ))[0];
+        let counterIx = new TransactionInstruction({
+            keys: [
+                {
+                    pubkey: counterKey,
+                    isSigner: false,
+                    isWritable: true,
+                },
+                {
+                    pubkey: feePayer.publicKey,
+                    isSigner: true,
+                    isWritable: false,
+                },
+                {
+                    pubkey: trackerKey,
+                    isSigner: false,
+                    isWritable: true,
+                },
+                {
+                    pubkey: new PublicKey("Af4DodBScfdZ8Qyq7qf6sNFisJQopQ93adTawWvNxvFK"),
+                    isSigner: false,
+                    isWritable: false,
+                },
+            ],
+            programId: programId,
+            data: Buffer.from(new Uint8Array([1])),
+        });
+        console.log("couinterIx:", counterIx);
+        tx.add(counterIx);
+
+
     } else {
+        var trackerKey = (await PublicKey.findProgramAddress(
+            [feePayer.publicKey.toBuffer(), counterKey.toBuffer()],
+            programId
+        ))[0];
+
         console.log("Generating new counter address");
         let createIx = SystemProgram.createAccount({
             fromPubkey: feePayer.publicKey,
             newAccountPubkey: counterKey,
             /** Amount of lamports to transfer to the created account */
-            lamports: await connection.getMinimumBalanceForRentExemption(36),
+            lamports: await connection.getMinimumBalanceForRentExemption(4),
             /** Amount of space in bytes to allocate to the created account */
-            space: 36,
+            space: 4,
             /** Public key of the program to assign as the owner of the created account */
             programId: programId,
         });
         signers.push(counterAccount);
         tx.add(createIx);
+
+        let counterIx = new TransactionInstruction({
+            keys: [
+                {
+                    pubkey: counterKey,
+                    isSigner: false,
+                    isWritable: true,
+                },
+                {
+                    pubkey: feePayer.publicKey,
+                    isSigner: true,
+                    isWritable: false,
+                },
+                {
+                    pubkey: trackerKey,
+                    isSigner: false,
+                    isWritable: true,
+                },
+                {
+                    pubkey: SystemProgram.programId,
+                    isSigner: false,
+                    isWritable: false,
+                },
+            ],
+            programId: programId,
+            data: Buffer.from(new Uint8Array([0])),
+        });
+        console.log("couinterIx:", counterIx);
+        tx.add(counterIx);
+
     }
 
     let instr_dat = Buffer.from("");
-    // if (args.length > 2) {
-    //     let toIncrement = parseInt(args[2], 10);
-    //     console.log("toIncrement: ", toIncrement);
-    //     instr_dat = Buffer.from("    ");
-    //     instr_dat.writeInt32LE(toIncrement, 0);
-    //     console.log("Incrementing by: ", instr_dat.readUInt32LE());
-    // }
-
-    let counterIx = new TransactionInstruction({
-        keys: [
-            {
-                pubkey: counterKey,
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: feePayer.publicKey,
-                isSigner: true,
-                isWritable: false,
-            },
-        ],
-        programId: programId,
-        data: instr_dat,
-    });
-    console.log("couinterIx:", counterIx);
-    tx.add(counterIx);
 
     let txid = await sendAndConfirmTransaction(connection, tx, signers, {
         skipPreflight: true,
@@ -101,8 +145,10 @@ const main = async () => {
         commitment: "confirmed",
     });
 
-    let data = (await connection.getAccountInfo(counterKey, "confirmed")).data;
-    console.log("New counter value: ", data.readUInt32LE(32));
+    let data = (await connection.getAccountInfo(trackerKey, "confirmed")).data;
+    console.log("New user counter value: ", data.readUInt32LE(32));
+    data = (await connection.getAccountInfo(counterKey, "confirmed")).data;
+    console.log("New global counter value: ", data.readUInt32LE());
     console.log("Counter Key:", counterKey.toBase58());
 };
 
